@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  my-namespace
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-configmap
+  namespace: my-namespace
+data:
+  AUTHOR: Stenka
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-registry-secret
+  namespace: my-namespace
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJodHRwczovL2luZGV4LmRvY2tlci5pby92MS8iOnsidXNlcm5hbWUiOiJ1c2VyOTcyIiwicGFzc3dvcmQiOiJhMTIzNDU2NzgiLCJlbWFpbCI6ImFsLnBldHJvdzIwMTRAeWFuZGV4LnJ1IiwiYXV0aCI6ImRYTmxjamszTWpwaE1USXpORFUyTnpnIn19fQ==
+type: kubernetes.io/dockerconfigjson
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: my-namespace
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: my-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-container
+          image: user972/priv-repo:tag
+          ports:
+            - containerPort: 8000
+          envFrom:
+          - configMapRef:
+              name: my-configmap
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 3
+      imagePullSecrets:
+      - name: my-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: my-namespace
+spec:
+  ports:
+  - port: 80
+    targetPort: 8000
+  selector:
+    app: my-app
+  type: ClusterIP
